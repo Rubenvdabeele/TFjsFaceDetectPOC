@@ -1,4 +1,4 @@
-# Tesorflow js POC
+# Tensorflow js POC
 
 Tiny example usage of TensorFlow js.Using a pretrained model for body part detection on video.
 
