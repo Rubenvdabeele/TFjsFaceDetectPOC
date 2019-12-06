@@ -1,3 +1,6 @@
+#specific - do not version video
+*.mp4
+
 # Logs
 logs
 *.log

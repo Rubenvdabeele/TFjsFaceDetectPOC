@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>title</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@1.0.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/5.10.3/math.js"></script>
+</head>
+
+<body>
+    <script>
+        document.addEventListener('DOMContentLoaded', init, false);
+        var videoSource;
+        var unProcessed;
+        var processed;
+        var cUnProcessed;
+        var cProcessed;
+        var net;
+
+        var once = false
+
+        var ratio = 0.5;
+
+        function ratioChanged(newRatio) {
+            ratio = parseFloat(newRatio)
+            //console.log(ratio)
+        }
+
+        async function init() {
+            unProcessed = document.getElementById('unprocessed');
+            processed = document.getElementById('processed');
+            cUnProcessed = unProcessed.getContext('2d');
+            cProcessed = processed.getContext('2d');
+            //"Hidden" video source tag
+            videoSource = document.getElementById('videoSource');
+            net = await bodyPix.load();
+            window.requestAnimationFrame(nextFrame)
+        }
+
+        async function nextFrame() {
+            cUnProcessed.drawImage(videoSource, 0, 0, videoSource.videoWidth / 4, videoSource.videoHeight / 4);
+            let frame = cUnProcessed.getImageData(0, 0, videoSource.videoWidth / 4, videoSource.videoHeight / 4);
+            
+            var mFrame = manipulate(frame, videoSource.videoWidth / 4, videoSource.videoHeight / 4)
+
+            var segmentation = await net.estimatePartSegmentation(mFrame, 16, ratio);
+
+            if (!once) {
+                //For debugging purposes.
+                console.log(segmentation)
+                var tensor = tf.tensor2d(segmentation.data, [videoSource.videoWidth / 4, videoSource.videoHeight / 4])
+                tensor.print()
+                console.log(tensor)
+                once = true
+            }
+
+            //Draw and queue next frame when ready.
+            drawResult(frame, segmentation)
+            window.requestAnimationFrame(nextFrame);
+        }
+
+
+        function drawResult(frame, segmentation) {
+            var sData = segmentation.data;
+            var fData = frame.data;
+
+            var j = 0;
+
+            for (var i = 0; i < sData.length; i += 1) {
+                /*var red = data[i];
+                var green = data[i + 1];
+                var blue = data[i + 2];
+                var alpha = data[i + 3];*/
+                var detection = sData[i]
+                if (detection == 0 || detection == 1) {
+                    //Face left | right
+                    fData[j] = 200;
+                }
+                if (detection != -1) {
+                    //Other body parts
+                    fData[j] = 255 - fData[j];
+                    fData[j + 1] = 255 - fData[j + 1];
+                    fData[j + 2] = 255 - fData[j + 2];
+                }
+                j += 4; //Iterate over RGBA pixel data
+            }
+
+            
+
+            cProcessed.putImageData(frame, 0, 0)
+
+        }
+
+        function manipulate(frame, width,height){
+            //Manipulate frame before running it through TFjs here.            
+            return frame;
+        }
+
+    </script>
+
+    <!--Hacky way to hide the input video tag-->
+    <video id="videoSource" controls loop muted autoplay style="height: 1px">
+        <source src="/video2" type="video/mp4">
+    </video>
+
+    <div>
+        <canvas id="unprocessed"></canvas>
+        <canvas id="processed"></canvas>
+    </div>
+    <div>
+        <input type="range" name="ratio" min="0" max="1" step="0.1" onchange="ratioChanged(this.value)"">
+        <label for=" ratio">ratio</label>
+    </div>
+</body>
+
+
+</html>
